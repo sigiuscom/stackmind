@@ -6,6 +6,8 @@
 
 Markdown editor with a live mindmap preview. Edit on either side — they stay in sync.
 
+**[Live demo →](https://kvaps.github.io/stackmind/)**
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.png">
