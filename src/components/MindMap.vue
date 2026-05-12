@@ -692,10 +692,9 @@ onMounted(() => {
     },
   })
   mind.init(markdownToMind(store.markdown))
-  requestAnimationFrame(() => {
-    fitToView()
-    setTimeout(fitToView, 200)
-  })
+  for (const delay of [0, 50, 150, 400, 800]) {
+    setTimeout(() => requestAnimationFrame(fitToView), delay)
+  }
   const centerBtn = mind.el.querySelector<HTMLElement>('#toCenter')
   if (centerBtn) {
     centerBtn.onclick = fitToView
