@@ -324,6 +324,9 @@ function handleMoveHotkey(e: KeyboardEvent) {
   if (!(e.metaKey || e.ctrlKey)) return
   if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
   if (!mind) return
+  const target = e.target as HTMLElement
+  if (target.id === 'input-box' || target.closest?.('#input-box')) return
+  if (host.value?.querySelector('#input-box')) return
   const current = mind.currentNode
   if (!current) return
   const nodeObj = current.nodeObj
@@ -463,6 +466,9 @@ function handleSpatialNav(e: KeyboardEvent) {
   if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
   if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
   if (!mind || !mind.currentNode) return
+  const target = e.target as HTMLElement
+  if (target.id === 'input-box' || target.closest?.('#input-box')) return
+  if (host.value?.querySelector('#input-box')) return
   e.preventDefault()
   e.stopImmediatePropagation()
 
@@ -488,8 +494,8 @@ function handleSpatialNav(e: KeyboardEvent) {
     }
   }
 
-  const target = findNearestNode(cur as unknown as HTMLElement, dir)
-  if (target) mind.selectNode(target as Parameters<MindElixirInstance['selectNode']>[0])
+  const nearest = findNearestNode(cur as unknown as HTMLElement, dir)
+  if (nearest) mind.selectNode(nearest as Parameters<MindElixirInstance['selectNode']>[0])
 }
 
 onMounted(() => {
