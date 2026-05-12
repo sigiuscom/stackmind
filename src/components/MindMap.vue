@@ -318,21 +318,61 @@ function handleMoveHotkey(e: KeyboardEvent) {
   const target = e.target as HTMLElement
   if (target.id === 'input-box' || target.closest?.('#input-box')) return
   if (host.value?.querySelector('#input-box')) return
-  const current = mind.currentNode
-  if (!current) return
-  const nodeObj = current.nodeObj
-  if (!nodeObj.parent) return
+  const nodes = (mind.currentNodes?.length ? mind.currentNodes : mind.currentNode ? [mind.currentNode] : []) as Array<NonNullable<MindElixirInstance['currentNode']>>
+  if (!nodes.length) return
+  const firstObj = nodes[0].nodeObj
+  if (!firstObj.parent) return
+  if (nodes.length > 1) {
+    const parentId = firstObj.parent.id
+    if (!nodes.every((n) => (n.nodeObj.parent as { id: string } | undefined)?.id === parentId)) return
+  }
 
   e.preventDefault()
   e.stopImmediatePropagation()
 
-  if (e.key === 'ArrowUp') return mind.moveUpNode(current)
-  if (e.key === 'ArrowDown') return mind.moveDownNode(current)
+  const parent = firstObj.parent as NodeObj
+  const siblings = parent.children ?? []
+  const sortedNodes = [...nodes].sort(
+    (a, b) =>
+      siblings.findIndex((c) => c.id === a.nodeObj.id) -
+      siblings.findIndex((c) => c.id === b.nodeObj.id)
+  )
 
-  const onLeft = isOnLeftSide(current as unknown as HTMLElement)
+  if (e.key === 'ArrowUp') {
+    const firstIdx = siblings.findIndex((c) => c.id === sortedNodes[0].nodeObj.id)
+    if (firstIdx <= 0) return
+    const prev = siblings[firstIdx - 1]
+    const prevEl = MindElixir.E(prev.id)
+    mind.moveNodeBefore(sortedNodes, prevEl)
+    return
+  }
+  if (e.key === 'ArrowDown') {
+    const lastIdx = siblings.findIndex(
+      (c) => c.id === sortedNodes[sortedNodes.length - 1].nodeObj.id
+    )
+    if (lastIdx >= siblings.length - 1) return
+    const next = siblings[lastIdx + 1]
+    const nextEl = MindElixir.E(next.id)
+    mind.moveNodeAfter(sortedNodes, nextEl)
+    return
+  }
+
+  const onLeft = isOnLeftSide(sortedNodes[0] as unknown as HTMLElement)
   const goingIn = (e.key === 'ArrowRight' && !onLeft) || (e.key === 'ArrowLeft' && onLeft)
-  if (goingIn) moveIn(current)
-  else moveOut(current)
+  if (goingIn) {
+    const firstIdx = siblings.findIndex((c) => c.id === sortedNodes[0].nodeObj.id)
+    const lastIdx = siblings.findIndex(
+      (c) => c.id === sortedNodes[sortedNodes.length - 1].nodeObj.id
+    )
+    let into: { id: string } | undefined
+    if (firstIdx > 0) into = siblings[firstIdx - 1]
+    else if (lastIdx < siblings.length - 1) into = siblings[lastIdx + 1]
+    if (!into) return
+    mind.moveNodeIn(sortedNodes, MindElixir.E(into.id))
+  } else {
+    if (!parent.parent) return
+    mind.moveNodeAfter(sortedNodes, MindElixir.E(parent.id))
+  }
 }
 
 function findNearestNode(
@@ -431,7 +471,10 @@ function handleTypeToEdit(e: KeyboardEvent) {
     e.preventDefault()
     e.stopImmediatePropagation()
     if (e.shiftKey) {
-      mind.removeNodes([mind.currentNode])
+      const nodes = (mind.currentNodes?.length
+        ? mind.currentNodes
+        : [mind.currentNode]) as Array<NonNullable<MindElixirInstance['currentNode']>>
+      mind.removeNodes(nodes)
     } else {
       mind.beginEdit(mind.currentNode)
     }
@@ -454,7 +497,7 @@ function handleTypeToEdit(e: KeyboardEvent) {
 }
 
 function handleSpatialNav(e: KeyboardEvent) {
-  if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+  if (e.metaKey || e.ctrlKey || e.altKey) return
   if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
   if (!mind || !mind.currentNode) return
   const target = e.target as HTMLElement
@@ -463,30 +506,50 @@ function handleSpatialNav(e: KeyboardEvent) {
   e.preventDefault()
   e.stopImmediatePropagation()
 
+  const extend = e.shiftKey
   const cur = mind.currentNode
   const nodeObj = cur.nodeObj
   const dir = e.key as 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'
 
+  const select = (id: string) => {
+    if (!mind) return false
+    try {
+      const el = MindElixir.E(id)
+      if (!el) return false
+      if (extend) {
+        mind.selection?.select(el as unknown as Parameters<NonNullable<MindElixirInstance['selection']>['select']>[0])
+      } else {
+        mind.selectNode(el)
+      }
+      return true
+    } catch {
+      return false
+    }
+  }
+
   if (dir === 'ArrowDown' || dir === 'ArrowUp') {
     const sibling = findSiblingNode(nodeObj, dir === 'ArrowDown' ? 'next' : 'prev')
-    if (sibling && trySelectById(sibling.id)) return
+    if (sibling && select(sibling.id)) return
   } else {
     const onLeft = isOnLeftSide(cur as unknown as HTMLElement)
     const goingIn = (dir === 'ArrowRight' && !onLeft) || (dir === 'ArrowLeft' && onLeft)
     if (goingIn) {
       if (nodeObj.expanded !== false && nodeObj.children?.length) {
         const remembered = lastChildMap.get(nodeObj.id)
-        const target = nodeObj.children.find((c) => c.id === remembered) ?? nodeObj.children[0]
-        if (trySelectById(target.id)) return
+        const targetNode = nodeObj.children.find((c) => c.id === remembered) ?? nodeObj.children[0]
+        if (select(targetNode.id)) return
       }
     } else {
       const parent = nodeObj.parent as NodeObj | undefined
-      if (parent && parent.parent && trySelectById(parent.id)) return
+      if (parent && parent.parent && select(parent.id)) return
     }
   }
 
   const nearest = findNearestNode(cur as unknown as HTMLElement, dir)
-  if (nearest) mind.selectNode(nearest as Parameters<MindElixirInstance['selectNode']>[0])
+  if (nearest) {
+    const id = (nearest as unknown as { nodeObj?: { id: string } }).nodeObj?.id
+    if (id) select(id)
+  }
 }
 
 onMounted(() => {
