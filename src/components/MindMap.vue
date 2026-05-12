@@ -23,7 +23,7 @@ const host = ref<HTMLDivElement | null>(null)
 let mind: MindElixirInstance | null = null
 let lastInternalMarkdown: string | null = null
 let freshNodeId: string | null = null
-let creatingNode = false
+let creatingNode: false | 'addChild' | 'insertSibling' | 'insertParent' = false
 const lastChildMap = new Map<string, string>()
 const inlineRenderer = new MarkdownIt({ html: true, breaks: true })
 let refreshTimer: number | null = null
@@ -737,7 +737,8 @@ onMounted(() => {
         return null
       }
     })()
-    const isFresh = creatingNode || freshNodeId === nodeObj.id
+    const isFresh = !!creatingNode || freshNodeId === nodeObj.id
+    const opKind = creatingNode || null
     freshNodeId = null
     let escaped = false
     const onKeydown = (e: KeyboardEvent) => {
@@ -750,6 +751,25 @@ onMounted(() => {
       document.removeEventListener('keydown', onKeydown, true)
       if (editingEl) editingEl.style.visibility = ''
       if (isFresh && escaped) {
+        if (opKind === 'insertParent') {
+          requestAnimationFrame(() => {
+            if (!mind) return
+            mind.refresh(markdownToMind(store.markdown))
+            const line = store.cursorLine
+            if (line >= 0) {
+              const target = findNodeByLine(mind.nodeData, line)
+              if (target) {
+                try {
+                  const el = MindElixir.E(target.id)
+                  if (el) mind.selectNode(el)
+                } catch {
+                  /* not visible */
+                }
+              }
+            }
+          })
+          return
+        }
         requestAnimationFrame(() => {
           if (!mind) return
           try {
@@ -838,7 +858,7 @@ onMounted(() => {
   }
   const origInsertSibling = mind.insertSibling.bind(mind)
   mind.insertSibling = async function (type, el, node) {
-    creatingNode = true
+    creatingNode = 'insertSibling'
     try {
       return await origInsertSibling(type, el, node)
     } finally {
@@ -847,7 +867,7 @@ onMounted(() => {
   }
   const origInsertParent = mind.insertParent.bind(mind)
   mind.insertParent = async function (el, node) {
-    creatingNode = true
+    creatingNode = 'insertParent'
     try {
       return await origInsertParent(el, node)
     } finally {
@@ -856,7 +876,7 @@ onMounted(() => {
   }
   const origAddChild = mind.addChild.bind(mind)
   mind.addChild = async function (el, node) {
-    creatingNode = true
+    creatingNode = 'addChild'
     try {
       return await origAddChild(el, node)
     } finally {
