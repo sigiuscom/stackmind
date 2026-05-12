@@ -843,6 +843,25 @@ onMounted(() => {
   mind.container.addEventListener('keydown', handleSpatialNav, { capture: true })
   mind.container.addEventListener('keydown', handleTypeToEdit, { capture: true })
 
+  const origMove = mind.move.bind(mind)
+  mind.move = function (dx, dy, smooth) {
+    if (!mind) return origMove(dx, dy, smooth)
+    const cRect = mind.container.getBoundingClientRect()
+    const nRect = mind.nodes.getBoundingClientRect()
+    const minOverlap = 60
+    if (dx > 0 && nRect.left + dx > cRect.right - minOverlap) {
+      dx = Math.max(0, cRect.right - minOverlap - nRect.left)
+    } else if (dx < 0 && nRect.right + dx < cRect.left + minOverlap) {
+      dx = Math.min(0, cRect.left + minOverlap - nRect.right)
+    }
+    if (dy > 0 && nRect.top + dy > cRect.bottom - minOverlap) {
+      dy = Math.max(0, cRect.bottom - minOverlap - nRect.top)
+    } else if (dy < 0 && nRect.bottom + dy < cRect.top + minOverlap) {
+      dy = Math.min(0, cRect.top + minOverlap - nRect.bottom)
+    }
+    return origMove(dx, dy, smooth)
+  }
+
   const origBeginEdit = mind.beginEdit.bind(mind)
   mind.beginEdit = function (el) {
     const nodeEle = el ?? this.currentNode
