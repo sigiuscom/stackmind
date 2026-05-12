@@ -842,6 +842,29 @@ onMounted(() => {
   mind.container.addEventListener('keydown', handleSpatialNav, { capture: true })
   mind.container.addEventListener('keydown', handleTypeToEdit, { capture: true })
 
+  const parseTranslate = (transform: string) => {
+    const m = transform.match(/translate(?:3d)?\(([-\d.]+)(?:px)?\s*,\s*([-\d.]+)(?:px)?/)
+    if (!m) return { x: 0, y: 0 }
+    return { x: parseFloat(m[1]), y: parseFloat(m[2]) }
+  }
+  const origScale = mind.scale.bind(mind)
+  mind.scale = function (scaleVal, offset) {
+    if (offset || !mind) return origScale(scaleVal, offset)
+    const cRect = mind.container.getBoundingClientRect()
+    const cx = cRect.width / 2
+    const cy = cRect.height / 2
+    const t = parseTranslate(mind.map.style.transform)
+    const oldScale = mind.scaleVal || 1
+    const localX = (cx - t.x) / oldScale
+    const localY = (cy - t.y) / oldScale
+    const dx = cx - localX * scaleVal
+    const dy = cy - localY * scaleVal
+    mind.scaleVal = scaleVal
+    mind.map.style.transformOrigin = '0 0'
+    mind.map.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${scaleVal})`
+    mind.bus.fire('scale', scaleVal)
+  }
+
   const origMove = mind.move.bind(mind)
   mind.move = function (dx, dy, smooth) {
     if (!mind) return origMove(dx, dy, smooth)
