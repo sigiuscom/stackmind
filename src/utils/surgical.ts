@@ -182,6 +182,86 @@ export function removeNodes(markdown: string, metas: NodeMeta[]): string {
   return lines.join('\n') + '\n'
 }
 
+interface NodeLike {
+  topic?: string
+  children?: NodeLike[]
+  expanded?: boolean
+}
+
+function renderSubtreeLines(
+  node: NodeLike,
+  parentMeta: NodeMeta,
+  parentSiblingMeta: NodeMeta | undefined,
+  out: string[]
+): void {
+  const { indent, marker } = (function () {
+    if (parentSiblingMeta && parentSiblingMeta.kind !== 'block') {
+      if (parentSiblingMeta.kind === 'heading') {
+        const level = parentSiblingMeta.level ?? 2
+        return { indent: parentSiblingMeta.indent ?? 0, marker: '#'.repeat(level) + ' ' }
+      }
+      return { indent: parentSiblingMeta.indent ?? 0, marker: parentSiblingMeta.marker ?? '- ' }
+    }
+    if (parentMeta.kind === 'heading') {
+      const level = parentMeta.level ?? 1
+      if (level >= 2) return { indent: 0, marker: '- ' }
+      return { indent: 0, marker: '#'.repeat(level + 1) + ' ' }
+    }
+    if (parentMeta.kind === 'listItem') {
+      return { indent: (parentMeta.indent ?? 0) + 2, marker: '- ' }
+    }
+    return { indent: 0, marker: '## ' }
+  })()
+
+  const text = node.topic || ' '
+  const foldSuffix = node.expanded === false ? ' <!-- markmap: fold -->' : ''
+  const lines = text.split('\n')
+  if (lines.length === 1) {
+    out.push(' '.repeat(indent) + marker + lines[0] + foldSuffix)
+  } else {
+    const continuation = ' '.repeat(indent + 2)
+    out.push(' '.repeat(indent) + marker + lines[0] + '\\')
+    for (let i = 1; i < lines.length - 1; i++) {
+      out.push(continuation + lines[i] + '\\')
+    }
+    out.push(continuation + lines[lines.length - 1] + foldSuffix)
+  }
+
+  const selfMeta: NodeMeta = {
+    kind: marker.trim().startsWith('#') ? 'heading' : 'listItem',
+    level: marker.trim().startsWith('#') ? marker.trim().length : undefined,
+    indent,
+    marker,
+    startLine: -1,
+    endLine: -1,
+  }
+  for (const child of node.children ?? []) {
+    renderSubtreeLines(child, selfMeta, undefined, out)
+  }
+}
+
+export function insertSubtree(
+  markdown: string,
+  parentMeta: NodeMeta,
+  parentBlockEnd: number,
+  node: NodeLike,
+  parentExpanded: boolean,
+  siblingMeta?: NodeMeta
+): string {
+  const lines = markdown.split('\n')
+  const out: string[] = []
+  renderSubtreeLines(node, parentMeta, siblingMeta, out)
+  const insertAt = Math.min(lines.length, parentBlockEnd + 1)
+  if (!parentExpanded && parentMeta.startLine >= 0) {
+    const head = lines[parentMeta.startLine]
+    if (head && !/<!--\s*markmap:\s*fold\s*-->/.test(head)) {
+      lines[parentMeta.startLine] = head + ' <!-- markmap: fold -->'
+    }
+  }
+  lines.splice(insertAt, 0, ...out)
+  return lines.join('\n')
+}
+
 export function setFold(markdown: string, meta: NodeMeta, fold: boolean): string {
   if (meta.kind === 'root' || meta.startLine < 0) return markdown
   const lines = markdown.split('\n')

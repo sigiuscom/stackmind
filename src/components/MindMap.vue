@@ -12,6 +12,7 @@ import {
   editNodeText,
   insertChild,
   insertSibling,
+  insertSubtree,
   moveBlock,
   removeNodes,
   setFold,
@@ -224,6 +225,35 @@ function trySurgicalEdit(op: unknown): boolean {
     return commitMarkdown(
       insertSibling(store.markdown, refMeta, o.type ?? 'after', text, refEnd, parentMeta)
     )
+  }
+
+  if (o.name === 'copyNode' || o.name === 'copyNodes') {
+    const items =
+      o.name === 'copyNode'
+        ? o.obj
+          ? [o.obj]
+          : []
+        : (o.objs ?? [])
+    if (!items.length) return false
+    const parent = items[0].parent as NodeObj | undefined
+    if (!parent) return false
+    const parentMeta = parent.metadata as NodeMeta | undefined
+    if (!parentMeta) return false
+    if (parentMeta.kind !== 'root' && parentMeta.startLine < 0) return false
+    const existingSibling = (parent.children ?? []).find((c) => {
+      if (items.some((it) => it.id === c.id)) return false
+      const m = c.metadata as NodeMeta | undefined
+      return m?.kind === 'heading' || m?.kind === 'listItem'
+    })
+    const siblingMeta = existingSibling?.metadata as NodeMeta | undefined
+    let md = store.markdown
+    let pEnd = blockEnd(parent)
+    for (const item of items) {
+      const before = md
+      md = insertSubtree(md, parentMeta, pEnd, item, parent.expanded !== false, siblingMeta)
+      if (md !== before) pEnd += md.split('\n').length - before.split('\n').length
+    }
+    return commitMarkdown(md)
   }
 
   if (o.name === 'moveUpNode' || o.name === 'moveDownNode') {
