@@ -240,8 +240,9 @@ function trySurgicalEdit(op: unknown): boolean {
     const neighborMeta = neighbor?.metadata as NodeMeta | undefined
     if (!neighborMeta) return false
     const targetLine = o.name === 'moveUpNode' ? neighborMeta.startLine : blockEnd(neighbor) + 1
+    const effMeta: NodeMeta = { ...meta, endLine: blockEnd(node) }
     return commitMarkdown(
-      moveBlock(store.markdown, meta, meta.indent ?? 0, null, targetLine)
+      moveBlock(store.markdown, effMeta, meta.indent ?? 0, null, targetLine)
     )
   }
 
@@ -253,13 +254,20 @@ function trySurgicalEdit(op: unknown): boolean {
     if (!toMeta) return false
 
     let md = store.markdown
-    const movedMetas = objs
-      .map((n) => n.metadata as NodeMeta | undefined)
-      .filter((m): m is NodeMeta => !!m && m.startLine >= 0)
-    if (!movedMetas.length) return false
+    const movedNodes = objs.filter((n) => {
+      const m = n.metadata as NodeMeta | undefined
+      return !!m && m.startLine >= 0
+    })
+    if (!movedNodes.length) return false
 
-    const sorted = [...movedMetas].sort((a, b) => b.startLine - a.startLine)
-    for (const meta of sorted) {
+    const sorted = [...movedNodes].sort((a, b) => {
+      const aLine = (a.metadata as NodeMeta).startLine
+      const bLine = (b.metadata as NodeMeta).startLine
+      return bLine - aLine
+    })
+    for (const node of sorted) {
+      const meta = node.metadata as NodeMeta
+      const effMeta: NodeMeta = { ...meta, endLine: blockEnd(node) }
       let newIndent: number
       let newMarker: string | null = null
       let targetLine: number
@@ -276,7 +284,7 @@ function trySurgicalEdit(op: unknown): boolean {
         targetLine = blockEnd(to) + 1
         newMarker = toMeta.kind === 'heading' ? (toMeta.marker ?? null) : '- '
       }
-      md = moveBlock(md, meta, newIndent, newMarker, targetLine)
+      md = moveBlock(md, effMeta, newIndent, newMarker, targetLine)
     }
     return commitMarkdown(md)
   }
