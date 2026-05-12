@@ -20,6 +20,8 @@ const store = useDocumentStore()
 const host = ref<HTMLDivElement | null>(null)
 let mind: MindElixirInstance | null = null
 let lastInternalMarkdown: string | null = null
+let freshNodeId: string | null = null
+let creatingNode = false
 const lastChildMap = new Map<string, string>()
 let refreshTimer: number | null = null
 let resizeObserver: ResizeObserver | null = null
@@ -60,19 +62,6 @@ function fitToView() {
   const ch = cRect.height
   const nw = nRect.width
   const nh = nRect.height
-  const hostEl = host.value!
-  const editorEl = hostEl.closest('.app')?.querySelector<HTMLElement>('.app__editor')
-  console.log('[fitToView]', {
-    cw, ch, nw, nh,
-    hostWidth: hostEl.clientWidth,
-    parentWidth: hostEl.parentElement?.clientWidth,
-    appWidth: hostEl.closest('.app')?.clientWidth,
-    appClass: hostEl.closest('.app')?.className,
-    viewMode: store.viewMode,
-    editorDisplay: editorEl?.style.display,
-    editorWidth: editorEl?.clientWidth,
-    editorComputedDisplay: editorEl ? getComputedStyle(editorEl).display : '?',
-  })
   if (cw === 0 || ch === 0 || nw === 0 || nh === 0) return
   const padding = 0.9
   const scale = Math.min(1, Math.min(cw / nw, ch / nh) * padding)
@@ -189,6 +178,7 @@ function trySurgicalEdit(op: unknown): boolean {
   if (o.name === 'addChild') {
     const child = o.obj
     if (!child) return false
+    freshNodeId = child.id
     const parent = child.parent as NodeObj | undefined
     if (!parent) return false
     const parentMeta = parent.metadata as NodeMeta | undefined
@@ -217,6 +207,7 @@ function trySurgicalEdit(op: unknown): boolean {
   if (o.name === 'insertSibling') {
     const sibling = o.obj
     if (!sibling) return false
+    freshNodeId = sibling.id
     const parent = sibling.parent as NodeObj | undefined
     if (!parent || !parent.children) return false
     const idx = parent.children.findIndex((c) => c.id === sibling.id)
@@ -587,8 +578,30 @@ onMounted(() => {
         return null
       }
     })()
+    const isFresh = creatingNode || freshNodeId === nodeObj.id
+    freshNodeId = null
+    let escaped = false
+    const onKeydown = (e: KeyboardEvent) => {
+      if (!(e.target instanceof HTMLElement)) return
+      if (!e.target.closest('#input-box')) return
+      if (e.key === 'Escape') escaped = true
+    }
+    document.addEventListener('keydown', onKeydown, { capture: true })
     const handleBlur = () => {
+      document.removeEventListener('keydown', onKeydown, true)
       if (editingEl) editingEl.style.visibility = ''
+      if (isFresh && escaped) {
+        requestAnimationFrame(() => {
+          if (!mind) return
+          try {
+            const el = MindElixir.E(nodeObj.id)
+            if (el) mind.removeNodes([el])
+          } catch {
+            /* missing */
+          }
+        })
+        return
+      }
       setTimeout(() => {
         const text = (inputBox.innerText ?? '').trim()
         if (text !== '') return
@@ -650,6 +663,34 @@ onMounted(() => {
   mind.container.addEventListener('keydown', handleMoveHotkey, { capture: true })
   mind.container.addEventListener('keydown', handleSpatialNav, { capture: true })
   mind.container.addEventListener('keydown', handleTypeToEdit, { capture: true })
+
+  const origInsertSibling = mind.insertSibling.bind(mind)
+  mind.insertSibling = async function (type, el, node) {
+    creatingNode = true
+    try {
+      return await origInsertSibling(type, el, node)
+    } finally {
+      creatingNode = false
+    }
+  }
+  const origInsertParent = mind.insertParent.bind(mind)
+  mind.insertParent = async function (el, node) {
+    creatingNode = true
+    try {
+      return await origInsertParent(el, node)
+    } finally {
+      creatingNode = false
+    }
+  }
+  const origAddChild = mind.addChild.bind(mind)
+  mind.addChild = async function (el, node) {
+    creatingNode = true
+    try {
+      return await origAddChild(el, node)
+    } finally {
+      creatingNode = false
+    }
+  }
 
   const origRemoveNodes = mind.removeNodes.bind(mind)
   mind.removeNodes = async function (tpcs) {
