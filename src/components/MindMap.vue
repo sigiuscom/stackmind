@@ -849,16 +849,16 @@ onMounted(() => {
   }
   const origScale = mind.scale.bind(mind)
   mind.scale = function (scaleVal, offset) {
-    if (offset || !mind) return origScale(scaleVal, offset)
+    if (!mind) return origScale(scaleVal, offset)
     const cRect = mind.container.getBoundingClientRect()
-    const cx = cRect.width / 2
-    const cy = cRect.height / 2
+    const anchorX = offset ? offset.x - cRect.left : cRect.width / 2
+    const anchorY = offset ? offset.y - cRect.top : cRect.height / 2
     const t = parseTranslate(mind.map.style.transform)
     const oldScale = mind.scaleVal || 1
-    const localX = (cx - t.x) / oldScale
-    const localY = (cy - t.y) / oldScale
-    const dx = cx - localX * scaleVal
-    const dy = cy - localY * scaleVal
+    const localX = (anchorX - t.x) / oldScale
+    const localY = (anchorY - t.y) / oldScale
+    const dx = anchorX - localX * scaleVal
+    const dy = anchorY - localY * scaleVal
     mind.scaleVal = scaleVal
     mind.map.style.transformOrigin = '0 0'
     mind.map.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${scaleVal})`
