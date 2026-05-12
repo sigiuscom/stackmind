@@ -629,7 +629,11 @@ onMounted(() => {
     },
     markdown: (text) => {
       if (!text.trim()) return '  '
-      return inlineRenderer.renderInline(text).replace(/\n/g, '<br>')
+      const html = inlineRenderer.renderInline(text).replace(/\n/g, '<br>')
+      return html.replace(/<a\b([^>]*)>/gi, (match, attrs: string) => {
+        if (/\btarget\s*=/i.test(attrs)) return match
+        return `<a${attrs} target="_blank" rel="noopener noreferrer">`
+      })
     },
     keypress: {
       Tab: (e) => {

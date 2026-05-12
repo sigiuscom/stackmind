@@ -113,15 +113,11 @@ function metaFromPayload(payload: NodePayload | undefined, rawMd: string[]): Nod
 function toNodeObj(node: IPureNode, rawMd: string[]): NodeObj {
   const payload = (node as IPureNode & { payload?: NodePayload }).payload
   const meta = metaFromPayload(payload, rawMd)
-  const content = openLinksInNewTab(node.content || '')
-  const topic = htmlToText(content) || ' '
+  const topic = meta.rawBody || htmlToText(node.content || '') || ' '
   const obj: NodeObj = {
     id: nextId(),
     topic,
     metadata: meta,
-  }
-  if (content && content !== topic) {
-    obj.dangerouslySetInnerHTML = content
   }
   if (meta.fold) {
     obj.expanded = false
