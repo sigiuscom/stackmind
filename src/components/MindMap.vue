@@ -2,6 +2,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import MindElixir from 'mind-elixir'
 import type { MindElixirInstance, NodeObj } from 'mind-elixir'
+import MarkdownIt from 'markdown-it'
 import 'mind-elixir/style'
 import { useDocumentStore } from '@/stores/document'
 import { markdownToMind } from '@/utils/md2mind'
@@ -23,6 +24,7 @@ let lastInternalMarkdown: string | null = null
 let freshNodeId: string | null = null
 let creatingNode = false
 const lastChildMap = new Map<string, string>()
+const inlineRenderer = new MarkdownIt({ html: true, breaks: true })
 let refreshTimer: number | null = null
 let resizeObserver: ResizeObserver | null = null
 let recenterTimer: number | null = null
@@ -464,7 +466,7 @@ function toggleInlineFormat(prefix: string, suffix: string) {
   let md = store.markdown
   let changed = false
   for (const node of nodes) {
-    const nodeObj = node.nodeObj
+    const nodeObj = node.nodeObj as NodeObj & { dangerouslySetInnerHTML?: string }
     const meta = nodeObj.metadata as NodeMeta | undefined
     if (!meta || meta.startLine < 0) continue
     const body = (meta.rawBody ?? nodeObj.topic ?? '').trim()
@@ -477,12 +479,19 @@ function toggleInlineFormat(prefix: string, suffix: string) {
       ? body.slice(prefix.length, body.length - suffix.length)
       : `${prefix}${body}${suffix}`
     const next = editNodeText(md, meta, newBody)
-    if (next !== md) {
-      md = next
-      changed = true
+    if (next === md) continue
+    md = next
+    changed = true
+    nodeObj.topic = newBody
+    delete nodeObj.dangerouslySetInnerHTML
+    meta.rawBody = newBody
+    const el = node as unknown as { text?: { innerHTML: string } }
+    if (el.text) {
+      el.text.innerHTML = inlineRenderer.renderInline(newBody).replace(/\n/g, '<br>')
     }
   }
-  if (changed) commitMarkdown(md)
+  if (!changed) return
+  commitMarkdown(md)
 }
 
 function handleTypeToEdit(e: KeyboardEvent) {
@@ -619,8 +628,8 @@ onMounted(() => {
       },
     },
     markdown: (text) => {
-      const html = text.replace(/\n/g, '<br>')
-      return html.trim() === '' ? '  ' : html
+      if (!text.trim()) return '  '
+      return inlineRenderer.renderInline(text).replace(/\n/g, '<br>')
     },
     keypress: {
       Tab: (e) => {
@@ -772,6 +781,19 @@ onMounted(() => {
   mind.container.addEventListener('keydown', handleSpatialNav, { capture: true })
   mind.container.addEventListener('keydown', handleTypeToEdit, { capture: true })
 
+  const origBeginEdit = mind.beginEdit.bind(mind)
+  mind.beginEdit = function (el) {
+    const nodeEle = el ?? this.currentNode
+    if (!nodeEle) return Promise.resolve()
+    const nodeObj = nodeEle.nodeObj as NodeObj & { dangerouslySetInnerHTML?: string }
+    if (nodeObj.dangerouslySetInnerHTML) {
+      const meta = nodeObj.metadata as NodeMeta | undefined
+      const raw = meta?.rawBody ?? nodeObj.topic ?? ''
+      nodeObj.topic = raw
+      delete nodeObj.dangerouslySetInnerHTML
+    }
+    return origBeginEdit(nodeEle)
+  }
   const origInsertSibling = mind.insertSibling.bind(mind)
   mind.insertSibling = async function (type, el, node) {
     creatingNode = true

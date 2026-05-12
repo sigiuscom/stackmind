@@ -9,7 +9,7 @@ const DEFAULT_MARKDOWN = `# stackmind
 
 ## Welcome
 
-- A markdown editor with a live mindmap preview.
+- **A markdown editor with a live mindmap preview.**
 - Edit on either side — they stay in sync.
 
 ## Markdown features
@@ -30,28 +30,33 @@ const DEFAULT_MARKDOWN = `# stackmind
 ### Folding
 
 - Toggle a branch with the \`+/-\` on the node
-- Or press <kbd>Space</kbd> on a selected node
+- Or press \`Space\` on a selected node
 - Add \`<!-- markmap: fold -->\` to keep a branch collapsed in markdown
 
 ## Mindmap shortcuts
 
 ### Editing
 
-- <kbd>Tab</kbd> — add child
-- <kbd>Shift</kbd> + <kbd>Tab</kbd> — insert sibling before
-- <kbd>Enter</kbd> — insert sibling after
-- <kbd>Shift</kbd> + <kbd>Enter</kbd> — insert parent
-- <kbd>Backspace</kbd> — edit current node
-- <kbd>Shift</kbd> + <kbd>Backspace</kbd> — delete node
+- \`Tab\` — add child
+- \`Shift\` + \`Tab\` — insert sibling before
+- \`Enter\` — insert sibling after
+- \`Shift\` + \`Enter\` — insert parent
+- \`Backspace\` — edit current node
+- \`Shift\` + \`Backspace\` — delete node
 - Type any letter to start replacing the node text
-- <kbd>Esc</kbd> — cancel the current edit
+- \`Esc\` — cancel the current edit (also removes a freshly created node)
+- \`Cmd\`/\`Ctrl\` + \`B\` — toggle **bold** on selected nodes
+- \`Cmd\`/\`Ctrl\` + \`I\` — toggle *italic* on selected nodes
 
 ### Navigation
 
 - Arrow keys — move to the nearest node (within branch first, then spatially)
-- <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + Arrows — move the node itself
-- <kbd>F1</kbd> or the target icon — fit the whole map into view
-- <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Shift</kbd> + <kbd>Z</kbd> — undo / redo
+- \`Shift\` + Arrows — extend selection to multiple nodes
+- \`Shift\` + click — add/remove a node from the selection
+- Click on a node already in multi-selection — collapse selection to that node
+- \`Cmd\`/\`Ctrl\` + Arrows — move the node (or whole selection if siblings) up / down / in / out
+- \`F1\` or the target icon — fit the whole map into view
+- \`Cmd\`/\`Ctrl\` + \`Z\` / \`Shift\` + \`Z\` — undo / redo
 
 ## Layout
 
