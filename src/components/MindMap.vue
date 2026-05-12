@@ -453,6 +453,38 @@ function placeCaretAtEnd(el: HTMLElement) {
   sel.addRange(range)
 }
 
+function toggleInlineFormat(prefix: string, suffix: string) {
+  if (!mind) return
+  const nodes = (mind.currentNodes?.length
+    ? mind.currentNodes
+    : mind.currentNode
+      ? [mind.currentNode]
+      : []) as Array<NonNullable<MindElixirInstance['currentNode']>>
+  if (!nodes.length) return
+  let md = store.markdown
+  let changed = false
+  for (const node of nodes) {
+    const nodeObj = node.nodeObj
+    const meta = nodeObj.metadata as NodeMeta | undefined
+    if (!meta || meta.startLine < 0) continue
+    const body = (meta.rawBody ?? nodeObj.topic ?? '').trim()
+    if (!body) continue
+    const wrapped =
+      body.startsWith(prefix) &&
+      body.endsWith(suffix) &&
+      body.length > prefix.length + suffix.length
+    const newBody = wrapped
+      ? body.slice(prefix.length, body.length - suffix.length)
+      : `${prefix}${body}${suffix}`
+    const next = editNodeText(md, meta, newBody)
+    if (next !== md) {
+      md = next
+      changed = true
+    }
+  }
+  if (changed) commitMarkdown(md)
+}
+
 function handleTypeToEdit(e: KeyboardEvent) {
   if (!mind || !mind.currentNode) return
   const target = e.target as HTMLElement
@@ -464,6 +496,19 @@ function handleTypeToEdit(e: KeyboardEvent) {
     e.stopImmediatePropagation()
     if (e.shiftKey) store.redo()
     else store.undo()
+    return
+  }
+
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'b' || e.key === 'B')) {
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    toggleInlineFormat('**', '**')
+    return
+  }
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'i' || e.key === 'I')) {
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    toggleInlineFormat('*', '*')
     return
   }
 
@@ -789,13 +834,31 @@ onMounted(() => {
     'pointerdown',
     (e) => {
       const t = e.target as HTMLElement
-      const onTopic = !!t.closest('me-tpc')
+      const topicEl = t.closest('me-tpc') as HTMLElement | null
+      const onTopic = !!topicEl
       const onExpander = t.tagName === 'ME-EPD'
       const onUi = !!t.closest('.mind-elixir-toolbar, #input-box, .context-menu')
       if (onExpander) {
         const cur = mind!.currentNode?.nodeObj
         preExpandSelection = cur ? { id: cur.id, nodeObj: cur } : null
         return
+      }
+      if (onTopic && e.button === 0 && mind) {
+        if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          e.stopImmediatePropagation()
+          e.preventDefault()
+          mind.selection?.select(topicEl as Parameters<NonNullable<MindElixirInstance['selection']>['select']>[0])
+          return
+        }
+        if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          const nodes = mind.currentNodes ?? []
+          if (nodes.length > 1 && nodes.some((n) => n === topicEl)) {
+            e.stopImmediatePropagation()
+            e.preventDefault()
+            mind.selectNode(topicEl as Parameters<MindElixirInstance['selectNode']>[0])
+            return
+          }
+        }
       }
       if (onTopic || onUi) return
       suppressClear = true
