@@ -166,7 +166,14 @@ function trySurgicalEdit(op: unknown): boolean {
 
   if (o.name === 'finishEdit') {
     const meta = o.obj?.metadata as NodeMeta | undefined
-    if (!meta || meta.startLine < 0) return false
+    if (!meta) return false
+    const isRoot = !!mind && o.obj === mind.nodeData
+    if (isRoot && meta.startLine < 0) {
+      const forced: NodeMeta = { ...meta, kind: 'root' }
+      if (typeof o.obj?.topic !== 'string') return false
+      return commitMarkdown(editNodeText(store.markdown, forced, o.obj.topic))
+    }
+    if (meta.startLine < 0) return false
     if (typeof o.obj?.topic !== 'string') return false
     return commitMarkdown(editNodeText(store.markdown, meta, o.obj.topic))
   }

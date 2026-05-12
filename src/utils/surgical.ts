@@ -18,7 +18,13 @@ function escapeNewlinesForListItem(text: string, indent: number): string {
 }
 
 export function editNodeText(markdown: string, meta: NodeMeta, newText: string): string {
-  if (meta.startLine < 0) return markdown
+  if (meta.startLine < 0) {
+    if (meta.kind !== 'root') return markdown
+    const head = `# ${newText.split('\n')[0]}`
+    const rest = markdown.trim()
+    if (!rest) return head + '\n'
+    return head + '\n\n' + rest + (rest.endsWith('\n') ? '' : '\n')
+  }
   const lines = markdown.split('\n')
   const firstLine = lines[meta.startLine]
   if (firstLine === undefined) return markdown
