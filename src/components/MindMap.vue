@@ -850,6 +850,7 @@ onMounted(() => {
   const origScale = mind.scale.bind(mind)
   mind.scale = function (scaleVal, offset) {
     if (!mind) return origScale(scaleVal, offset)
+    scaleVal = Math.min(8, Math.max(0.05, scaleVal))
     const cRect = mind.container.getBoundingClientRect()
     const anchorX = offset ? offset.x - cRect.left : cRect.width / 2
     const anchorY = offset ? offset.y - cRect.top : cRect.height / 2
