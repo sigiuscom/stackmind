@@ -11,6 +11,7 @@ import { mindToMarkdown } from '@/utils/mind2md'
 import {
   editNodeText,
   insertChild,
+  insertParent as insertParentMd,
   insertSibling,
   insertSubtree,
   moveBlock,
@@ -225,6 +226,19 @@ function trySurgicalEdit(op: unknown): boolean {
     return commitMarkdown(
       insertSibling(store.markdown, refMeta, o.type ?? 'after', text, refEnd, parentMeta)
     )
+  }
+
+  if (o.name === 'insertParent') {
+    const newParent = o.obj
+    if (!newParent) return false
+    freshNodeId = newParent.id
+    const original = newParent.children?.[0]
+    if (!original) return false
+    const origMeta = original.metadata as NodeMeta | undefined
+    if (!origMeta || origMeta.startLine < 0) return false
+    const origEnd = blockEnd(original)
+    const text = newParent.topic || 'New Node'
+    return commitMarkdown(insertParentMd(store.markdown, origMeta, origEnd, text))
   }
 
   if (o.name === 'copyNode' || o.name === 'copyNodes') {
@@ -752,20 +766,7 @@ onMounted(() => {
       if (isFresh && escaped) {
         if (opKind === 'insertParent') {
           requestAnimationFrame(() => {
-            if (!mind) return
-            mind.refresh(markdownToMind(store.markdown))
-            const line = store.cursorLine
-            if (line >= 0) {
-              const target = findNodeByLine(mind.nodeData, line)
-              if (target) {
-                try {
-                  const el = MindElixir.E(target.id)
-                  if (el) mind.selectNode(el)
-                } catch {
-                  /* not visible */
-                }
-              }
-            }
+            store.undo()
           })
           return
         }

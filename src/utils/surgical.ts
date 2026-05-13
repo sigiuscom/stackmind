@@ -109,6 +109,42 @@ export function insertChild(
   return lines.join('\n')
 }
 
+export function insertParent(
+  markdown: string,
+  origMeta: NodeMeta,
+  origBlockEnd: number,
+  newText: string
+): string {
+  if (origMeta.startLine < 0) return markdown
+  const lines = markdown.split('\n')
+  const blockStart = origMeta.startLine
+  const blockEnd = Math.max(origBlockEnd, blockStart)
+  const block = lines.slice(blockStart, blockEnd + 1)
+  let parentLine: string
+  let shifted: string[]
+  if (origMeta.kind === 'heading') {
+    const level = Math.min(origMeta.level ?? 2, 6)
+    parentLine = '#'.repeat(level) + ' ' + newText.split('\n')[0]
+    shifted = block.map((line) => {
+      const m = line.match(/^(\s*)(#{1,5})\s/)
+      if (!m) return line
+      return m[1] + '#' + m[2] + ' ' + line.slice(m[0].length)
+    })
+  } else if (origMeta.kind === 'listItem') {
+    const indent = origMeta.indent ?? 0
+    parentLine = ' '.repeat(indent) + '- ' + newText.split('\n')[0]
+    shifted = block.map((line) => '  ' + line)
+  } else {
+    return markdown
+  }
+  return [
+    ...lines.slice(0, blockStart),
+    parentLine,
+    ...shifted,
+    ...lines.slice(blockEnd + 1),
+  ].join('\n')
+}
+
 export function insertSibling(
   markdown: string,
   refMeta: NodeMeta,
