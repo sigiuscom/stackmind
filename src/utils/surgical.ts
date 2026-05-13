@@ -178,13 +178,22 @@ export function moveBlock(
   fromMeta: NodeMeta,
   newIndent: number,
   newMarker: string | null,
-  insertBeforeLine: number
+  insertBeforeLine: number,
+  headingBump = 0
 ): string {
   const lines = markdown.split('\n')
   const blockLen = fromMeta.endLine - fromMeta.startLine + 1
   const block = lines.slice(fromMeta.startLine, fromMeta.endLine + 1)
   const indentDelta = newIndent - (fromMeta.indent ?? 0)
   const adjusted = block.map((line, i) => {
+    if (headingBump !== 0) {
+      const h = line.match(/^(\s*)(#{1,6})\s/)
+      if (h) {
+        const oldLen = h[2].length
+        const newLen = Math.max(1, Math.min(6, oldLen + headingBump))
+        return h[1] + '#'.repeat(newLen) + line.slice(h[1].length + oldLen)
+      }
+    }
     if (i === 0 && newMarker) {
       const m = line.match(/^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/)
       if (m) return ' '.repeat(newIndent) + newMarker + m[2]

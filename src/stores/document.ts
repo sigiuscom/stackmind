@@ -104,6 +104,8 @@ export const useDocumentStore = defineStore('document', () => {
   const cursorSource = ref<'editor' | 'mindmap' | null>(null)
   const undoHandler = ref<(() => boolean) | null>(null)
   const redoHandler = ref<(() => boolean) | null>(null)
+  const errorMessage = ref<string | null>(null)
+  let errorTimer: number | null = null
 
   watch(
     [markdown, viewMode, splitRatio, theme],
@@ -149,6 +151,17 @@ export const useDocumentStore = defineStore('document', () => {
     return redoHandler.value?.() ?? false
   }
 
+  function setError(msg: string | null, autoDismissMs = 5000) {
+    errorMessage.value = msg
+    if (errorTimer) window.clearTimeout(errorTimer)
+    if (msg && autoDismissMs > 0) {
+      errorTimer = window.setTimeout(() => {
+        errorMessage.value = null
+        errorTimer = null
+      }, autoDismissMs)
+    }
+  }
+
   return {
     markdown,
     viewMode,
@@ -156,6 +169,7 @@ export const useDocumentStore = defineStore('document', () => {
     theme,
     cursorLine,
     cursorSource,
+    errorMessage,
     setMarkdown,
     setViewMode,
     setSplitRatio,
@@ -164,5 +178,6 @@ export const useDocumentStore = defineStore('document', () => {
     registerHistory,
     undo,
     redo,
+    setError,
   }
 })

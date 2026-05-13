@@ -315,20 +315,33 @@ function trySurgicalEdit(op: unknown): boolean {
       let newIndent: number
       let newMarker: string | null = null
       let targetLine: number
+      let headingBump = 0
       if (o.name === 'moveNodeIn') {
         newIndent = (toMeta.indent ?? 0) + (toMeta.kind === 'listItem' ? 2 : 0)
         targetLine = blockEnd(to) + 1
-        newMarker = '- '
+        if (meta.kind === 'heading' && toMeta.kind === 'heading') {
+          headingBump = (toMeta.level ?? 1) + 1 - (meta.level ?? 1)
+        } else {
+          newMarker = '- '
+        }
       } else if (o.name === 'moveNodeBefore') {
         newIndent = toMeta.indent ?? 0
         targetLine = toMeta.startLine
-        newMarker = toMeta.kind === 'heading' ? (toMeta.marker ?? null) : '- '
+        if (meta.kind === 'heading' && toMeta.kind === 'heading') {
+          headingBump = (toMeta.level ?? 1) - (meta.level ?? 1)
+        } else {
+          newMarker = toMeta.kind === 'heading' ? (toMeta.marker ?? null) : '- '
+        }
       } else {
         newIndent = toMeta.indent ?? 0
         targetLine = blockEnd(to) + 1
-        newMarker = toMeta.kind === 'heading' ? (toMeta.marker ?? null) : '- '
+        if (meta.kind === 'heading' && toMeta.kind === 'heading') {
+          headingBump = (toMeta.level ?? 1) - (meta.level ?? 1)
+        } else {
+          newMarker = toMeta.kind === 'heading' ? (toMeta.marker ?? null) : '- '
+        }
       }
-      md = moveBlock(md, effMeta, newIndent, newMarker, targetLine)
+      md = moveBlock(md, effMeta, newIndent, newMarker, targetLine, headingBump)
     }
     return commitMarkdown(md)
   }
@@ -835,7 +848,25 @@ onMounted(() => {
       if (el) el.style.visibility = 'hidden'
       return
     }
-    if (trySurgicalEdit(op)) return
+    const handled = trySurgicalEdit(op)
+    if (handled) return
+    const mutationOps = new Set([
+      'addChild',
+      'insertSibling',
+      'insertParent',
+      'removeNodes',
+      'moveUpNode',
+      'moveDownNode',
+      'moveNodeIn',
+      'moveNodeBefore',
+      'moveNodeAfter',
+      'copyNode',
+      'copyNodes',
+      'reshapeNode',
+    ])
+    if (op?.name && mutationOps.has(op.name as string)) {
+      store.setError(`Markdown not updated for "${op.name}" — mindmap may be out of sync`)
+    }
     // No surgical handler — skip markdown update rather than reformatting everything.
     // Next surgical op will re-sync from the (possibly stale) markdown side.
   })

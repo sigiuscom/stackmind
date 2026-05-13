@@ -80,6 +80,10 @@ function onDragEnd(e: PointerEvent) {
 
 <template>
   <div ref="appRef" :class="rootClass">
+    <div v-if="store.errorMessage" class="app__toast" @click="store.setError(null)">
+      <span>{{ store.errorMessage }}</span>
+      <button type="button" class="app__toast-close" aria-label="Dismiss">×</button>
+    </div>
     <div class="app__editor" :style="editorStyle"><Editor /></div>
     <div
       v-if="!dividerHidden"
@@ -150,6 +154,33 @@ html, body, #app {
   min-width: 0;
   height: 100%;
   overflow: hidden;
+}
+.app__toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #c62828;
+  color: #fff;
+  padding: 10px 16px 10px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1000;
+  cursor: pointer;
+  max-width: 80vw;
+}
+.app__toast-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
 }
 .app__divider {
   flex: 0 0 6px;
