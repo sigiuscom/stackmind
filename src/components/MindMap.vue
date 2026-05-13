@@ -309,6 +309,19 @@ function trySurgicalEdit(op: unknown): boolean {
       const bLine = (b.metadata as NodeMeta).startLine
       return bLine - aLine
     })
+
+    const targetHasListChildren = (toNode: NodeObj) =>
+      (toNode.children ?? []).some(
+        (c) => (c.metadata as NodeMeta | undefined)?.kind === 'listItem'
+      )
+    const targetListChildIndent = (toNode: NodeObj): number => {
+      const firstListChild = (toNode.children ?? []).find(
+        (c) => (c.metadata as NodeMeta | undefined)?.kind === 'listItem'
+      )
+      const m = firstListChild?.metadata as NodeMeta | undefined
+      return m?.indent ?? 0
+    }
+
     for (const node of sorted) {
       const meta = node.metadata as NodeMeta
       const effMeta: NodeMeta = { ...meta, endLine: blockEnd(node) }
@@ -316,32 +329,45 @@ function trySurgicalEdit(op: unknown): boolean {
       let newMarker: string | null = null
       let targetLine: number
       let headingBump = 0
+      let convertHeadingToList = false
+
       if (o.name === 'moveNodeIn') {
-        newIndent = (toMeta.indent ?? 0) + (toMeta.kind === 'listItem' ? 2 : 0)
         targetLine = blockEnd(to) + 1
-        if (meta.kind === 'heading' && toMeta.kind === 'heading') {
-          headingBump = (toMeta.level ?? 1) + 1 - (meta.level ?? 1)
+        if (meta.kind === 'heading') {
+          if (toMeta.kind === 'heading' && !targetHasListChildren(to)) {
+            newIndent = 0
+            headingBump = (toMeta.level ?? 1) + 1 - (meta.level ?? 1)
+          } else if (toMeta.kind === 'heading' && targetHasListChildren(to)) {
+            newIndent = targetListChildIndent(to)
+            convertHeadingToList = true
+          } else {
+            newIndent = (toMeta.indent ?? 0) + 2
+            convertHeadingToList = true
+          }
         } else {
+          newIndent = (toMeta.indent ?? 0) + (toMeta.kind === 'listItem' ? 2 : 0)
           newMarker = '- '
         }
-      } else if (o.name === 'moveNodeBefore') {
-        newIndent = toMeta.indent ?? 0
-        targetLine = toMeta.startLine
+      } else if (o.name === 'moveNodeBefore' || o.name === 'moveNodeAfter') {
+        targetLine = o.name === 'moveNodeBefore' ? toMeta.startLine : blockEnd(to) + 1
         if (meta.kind === 'heading' && toMeta.kind === 'heading') {
+          newIndent = 0
           headingBump = (toMeta.level ?? 1) - (meta.level ?? 1)
+        } else if (meta.kind === 'heading' && toMeta.kind === 'listItem') {
+          newIndent = toMeta.indent ?? 0
+          convertHeadingToList = true
         } else {
+          newIndent = toMeta.indent ?? 0
           newMarker = toMeta.kind === 'heading' ? (toMeta.marker ?? null) : '- '
         }
       } else {
-        newIndent = toMeta.indent ?? 0
-        targetLine = blockEnd(to) + 1
-        if (meta.kind === 'heading' && toMeta.kind === 'heading') {
-          headingBump = (toMeta.level ?? 1) - (meta.level ?? 1)
-        } else {
-          newMarker = toMeta.kind === 'heading' ? (toMeta.marker ?? null) : '- '
-        }
+        continue
       }
-      md = moveBlock(md, effMeta, newIndent, newMarker, targetLine, headingBump)
+
+      md = moveBlock(md, effMeta, newIndent, newMarker, targetLine, {
+        headingBump,
+        convertHeadingToList,
+      })
     }
     return commitMarkdown(md)
   }

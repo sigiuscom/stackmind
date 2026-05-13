@@ -173,19 +173,37 @@ export function insertSibling(
   return lines.join('\n')
 }
 
+export interface MoveBlockOptions {
+  headingBump?: number
+  convertHeadingToList?: boolean
+}
+
 export function moveBlock(
   markdown: string,
   fromMeta: NodeMeta,
   newIndent: number,
   newMarker: string | null,
   insertBeforeLine: number,
-  headingBump = 0
+  options: MoveBlockOptions = {}
 ): string {
   const lines = markdown.split('\n')
   const blockLen = fromMeta.endLine - fromMeta.startLine + 1
   const block = lines.slice(fromMeta.startLine, fromMeta.endLine + 1)
   const indentDelta = newIndent - (fromMeta.indent ?? 0)
+  const headingBump = options.headingBump ?? 0
+  const convert = options.convertHeadingToList === true && fromMeta.kind === 'heading'
+  const fromLevel = fromMeta.level ?? 2
   const adjusted = block.map((line, i) => {
+    if (convert) {
+      const h = line.match(/^(\s*)(#{1,6})\s+(.*)$/)
+      if (h) {
+        const level = h[2].length
+        const depth = level - fromLevel
+        return ' '.repeat(newIndent + Math.max(0, depth) * 2) + '- ' + h[3]
+      }
+      if (line.length === 0) return line
+      return ' '.repeat(newIndent + 2) + line
+    }
     if (headingBump !== 0) {
       const h = line.match(/^(\s*)(#{1,6})\s/)
       if (h) {
