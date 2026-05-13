@@ -651,7 +651,7 @@ describe('insertSibling edge cases', () => {
     expect(lines[lines.length - 1]).toBe('## Final')
   })
 
-  test('insert sibling of an ordered-list item keeps indent and uses dash marker', () => {
+  test('insert sibling of an ordered-list item keeps indent and preserves ordered marker', () => {
     const md = `# Root
 
 ## Lists
@@ -666,10 +666,8 @@ describe('insertSibling edge cases', () => {
     const lines = next.split('\n')
     const newIdx = lines.findIndex((l) => l.includes('one-and-a-half'))
     expect(newIdx).toBeGreaterThan(0)
-    // indent should equal refMeta.indent (0 here for top-level)
     expect(lines[newIdx].startsWith(' '.repeat(refMeta.indent ?? 0))).toBe(true)
-    // implementation currently forces `- ` for list items even when ref is ordered
-    expect(lines[newIdx]).toBe('- one-and-a-half')
+    expect(lines[newIdx]).toMatch(/^\d+[.)] one-and-a-half$/)
   })
 })
 

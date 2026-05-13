@@ -161,7 +161,7 @@ export function insertSibling(
     marker = refMeta.marker ?? '## '
   } else {
     indent = refMeta.indent ?? 0
-    marker = '- '
+    marker = refMeta.marker ?? '- '
   }
   const body = escapeBody(newText, indent)
   const newLines = body
