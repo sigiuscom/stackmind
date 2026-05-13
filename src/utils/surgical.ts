@@ -194,6 +194,9 @@ export function moveBlock(
   const headingBump = options.headingBump ?? 0
   const convert = options.convertHeadingToList === true && fromMeta.kind === 'heading'
   const fromLevel = fromMeta.level ?? 2
+  const convertList =
+    options.convertListToHeading === true && fromMeta.kind === 'listItem'
+  const baseListIndent = (fromMeta.indent ?? 0) + 2
   const adjusted = block.map((line, i) => {
     if (convert) {
       const h = line.match(/^(\s*)(#{1,6})\s+(.*)$/)
@@ -204,6 +207,17 @@ export function moveBlock(
       }
       if (line.length === 0) return line
       return ' '.repeat(newIndent + 2) + line
+    }
+    if (convertList) {
+      if (i === 0 && newMarker) {
+        const m = line.match(/^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/)
+        if (m) return ' '.repeat(newIndent) + newMarker + m[2]
+      }
+      if (line.length === 0) return line
+      const m = line.match(/^( {0,})/)
+      const curIndent = m ? m[0].length : 0
+      const targetIndent = Math.max(0, curIndent + newIndent - baseListIndent)
+      return ' '.repeat(targetIndent) + line.replace(/^\s*/, '')
     }
     if (headingBump !== 0) {
       const h = line.match(/^(\s*)(#{1,6})\s/)

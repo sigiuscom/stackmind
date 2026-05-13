@@ -333,6 +333,49 @@ describe('moveBlock', () => {
   })
 })
 
+describe('moveBlock list → heading roundtrip', () => {
+  test('moveOut converts list-item back to heading and flattens nested children', () => {
+    // Setup: markdown after Cmd+→ already applied (Navigation now `- Navigation` inside Editing list context)
+    const after = `# stackmind
+
+## Mindmap shortcuts
+
+### Editing
+
+- \`Tab\` — add child
+- \`Shift\` + \`Tab\` — insert sibling before
+- \`Enter\` — insert sibling after
+- \`Shift\` + \`Enter\` — insert parent
+- \`Backspace\` — edit current node
+- \`Shift\` + \`Backspace\` — delete node
+- Type any letter to start replacing the node text
+- \`Esc\` — cancel the current edit (also removes a freshly created node)
+- \`Cmd\`/\`Ctrl\` + \`B\` — toggle **bold** on selected nodes
+- \`Cmd\`/\`Ctrl\` + \`I\` — toggle *italic* on selected nodes
+- Navigation
+  - Arrow keys — move to the nearest node
+  - \`Shift\` + Arrows — extend selection
+  - \`Cmd\`/\`Ctrl\` + Arrows — move the node
+`
+    const root = parse(after)
+    const navigation = byTopic(root, 'Navigation')
+    const editing = byTopic(root, 'Editing')
+    const fromMeta = { ...(navigation.metadata as NodeMeta), endLine: blockEnd(navigation) }
+    const editingMeta = editing.metadata as NodeMeta
+    const next = moveBlock(after, fromMeta, 0, editingMeta.marker ?? '### ', blockEnd(editing) + 1, {
+      convertListToHeading: true,
+    })
+    const lines = next.split('\n')
+    // Navigation should now be heading at same level as Editing
+    expect(lines.some((l) => l === '### Navigation')).toBe(true)
+    // children should be flattened (indent=0)
+    expect(lines.some((l) => l === '- Arrow keys — move to the nearest node')).toBe(true)
+    expect(lines.some((l) => l === '- `Shift` + Arrows — extend selection')).toBe(true)
+    // no leftover indented child of removed `- Navigation`
+    expect(lines.some((l) => l.startsWith('  - Arrow keys'))).toBe(false)
+  })
+})
+
 describe('insertSubtree (copy)', () => {
   test('copy a heading subtree into root creates heading children', () => {
     const root = parse(WELCOME)

@@ -330,6 +330,7 @@ function trySurgicalEdit(op: unknown): boolean {
       let targetLine: number
       let headingBump = 0
       let convertHeadingToList = false
+      let convertListToHeading = false
 
       if (o.name === 'moveNodeIn') {
         targetLine = blockEnd(to) + 1
@@ -356,6 +357,10 @@ function trySurgicalEdit(op: unknown): boolean {
         } else if (meta.kind === 'heading' && toMeta.kind === 'listItem') {
           newIndent = toMeta.indent ?? 0
           convertHeadingToList = true
+        } else if (meta.kind === 'listItem' && toMeta.kind === 'heading') {
+          newIndent = 0
+          newMarker = toMeta.marker ?? '## '
+          convertListToHeading = true
         } else {
           newIndent = toMeta.indent ?? 0
           newMarker = toMeta.kind === 'heading' ? (toMeta.marker ?? null) : '- '
@@ -367,6 +372,7 @@ function trySurgicalEdit(op: unknown): boolean {
       md = moveBlock(md, effMeta, newIndent, newMarker, targetLine, {
         headingBump,
         convertHeadingToList,
+        convertListToHeading,
       })
     }
     return commitMarkdown(md)
