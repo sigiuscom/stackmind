@@ -36,17 +36,13 @@ export function editNodeText(markdown: string, meta: NodeMeta, newText: string):
 
   if (meta.kind === 'heading') {
     const replacement = newText.split('\n')[0]
-    lines.splice(
-      meta.startLine,
-      meta.endLine - meta.startLine + 1,
-      prefix + replacement + foldSuffix
-    )
+    lines.splice(meta.startLine, 1, prefix + replacement + foldSuffix)
   } else {
     const formatted = escapeNewlinesForListItem(newText, indent)
     const newLines = formatted.split('\n')
     newLines[0] = prefix + newLines[0]
     newLines[newLines.length - 1] = newLines[newLines.length - 1] + foldSuffix
-    lines.splice(meta.startLine, meta.endLine - meta.startLine + 1, ...newLines)
+    lines.splice(meta.startLine, 1, ...newLines)
   }
 
   return lines.join('\n')
