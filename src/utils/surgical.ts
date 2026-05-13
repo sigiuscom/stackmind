@@ -176,6 +176,7 @@ export function insertSibling(
 export interface MoveBlockOptions {
   headingBump?: number
   convertHeadingToList?: boolean
+  convertListToHeading?: boolean
 }
 
 export function moveBlock(
