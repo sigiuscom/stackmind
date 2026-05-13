@@ -669,6 +669,54 @@ describe('insertSibling edge cases', () => {
     expect(lines[newIdx].startsWith(' '.repeat(refMeta.indent ?? 0))).toBe(true)
     expect(lines[newIdx]).toMatch(/^\d+[.)] one-and-a-half$/)
   })
+
+  test('inserting after an ordered item renumbers subsequent items', () => {
+    const md = `# Root
+
+## Lists
+
+1. one
+2. two
+3. three
+`
+    const root = parse(md)
+    const ref = byTopic(root, 'one')
+    const next = insertSibling(md, ref.metadata as NodeMeta, 'after', 'one-and-a-half', blockEnd(ref))
+    const lines = next.split('\n').filter((l) => /^\d+\./.test(l))
+    expect(lines).toEqual(['1. one', '2. one-and-a-half', '3. two', '4. three'])
+  })
+
+  test('inserting before an ordered item renumbers including itself', () => {
+    const md = `# Root
+
+## Lists
+
+1. one
+2. two
+3. three
+`
+    const root = parse(md)
+    const ref = byTopic(root, 'two')
+    const next = insertSibling(md, ref.metadata as NodeMeta, 'before', 'one-and-a-half', blockEnd(ref))
+    const lines = next.split('\n').filter((l) => /^\d+\./.test(l))
+    expect(lines).toEqual(['1. one', '2. one-and-a-half', '3. two', '4. three'])
+  })
+
+  test('removing an ordered item renumbers remaining', () => {
+    const md = `# Root
+
+## Lists
+
+1. one
+2. two
+3. three
+`
+    const root = parse(md)
+    const node = byTopic(root, 'two')
+    const next = removeNodes(md, [node.metadata as NodeMeta])
+    const lines = next.split('\n').filter((l) => /^\d+\./.test(l))
+    expect(lines).toEqual(['1. one', '2. three'])
+  })
 })
 
 describe('insertParent edge cases', () => {

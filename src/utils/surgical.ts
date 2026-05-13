@@ -102,6 +102,10 @@ export function insertChild(
     }
   }
   lines.splice(insertAt, 0, ...newLines)
+  const orderedDelim = marker.match(/^\d+([.)])\s$/)?.[1]
+  if (orderedDelim) {
+    renumberOrderedList(lines, insertAt, indent, orderedDelim)
+  }
   return lines.join('\n')
 }
 
@@ -141,6 +145,32 @@ export function insertParent(
   ].join('\n')
 }
 
+function renumberOrderedList(lines: string[], anchorIdx: number, indent: number, delim: string) {
+  const pad = ' '.repeat(indent)
+  const itemRe = new RegExp(`^${pad}(\\d+)\\${delim} (.*)$`)
+  let start = anchorIdx
+  while (start > 0) {
+    const prev = lines[start - 1]
+    if (itemRe.test(prev)) start--
+    else break
+  }
+  let num = 1
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i]
+    const m = line.match(itemRe)
+    if (m) {
+      lines[i] = `${pad}${num}${delim} ${m[2]}`
+      num++
+      continue
+    }
+    const indentMatch = line.match(/^(\s*)/)
+    const lineIndent = indentMatch ? indentMatch[0].length : 0
+    if (line.trim().length === 0) continue
+    if (lineIndent > indent) continue
+    break
+  }
+}
+
 export function insertSibling(
   markdown: string,
   refMeta: NodeMeta,
@@ -161,7 +191,15 @@ export function insertSibling(
     marker = refMeta.marker ?? '## '
   } else {
     indent = refMeta.indent ?? 0
-    marker = refMeta.marker ?? '- '
+    const refMarker = refMeta.marker ?? '- '
+    const ordered = refMarker.match(/^(\d+)([.)])\s$/)
+    if (ordered) {
+      const refNum = parseInt(ordered[1], 10)
+      const nextNum = type === 'after' ? refNum + 1 : refNum
+      marker = `${nextNum}${ordered[2]} `
+    } else {
+      marker = refMarker
+    }
   }
   const body = escapeBody(newText, indent)
   const newLines = body
@@ -170,6 +208,10 @@ export function insertSibling(
   const insertAt =
     type === 'before' ? refMeta.startLine : (refBlockEnd ?? refMeta.endLine) + 1
   lines.splice(insertAt, 0, ...newLines)
+  const orderedDelim = marker.match(/^\d+([.)])\s$/)?.[1]
+  if (orderedDelim) {
+    renumberOrderedList(lines, insertAt, indent, orderedDelim)
+  }
   return lines.join('\n')
 }
 
@@ -251,6 +293,10 @@ export function removeNodes(markdown: string, metas: NodeMeta[]): string {
     .sort((a, b) => b.startLine - a.startLine)
   for (const meta of sorted) {
     lines.splice(meta.startLine, meta.endLine - meta.startLine + 1)
+    const orderedDelim = (meta.marker ?? '').match(/^\d+([.)])\s$/)?.[1]
+    if (orderedDelim) {
+      renumberOrderedList(lines, Math.min(meta.startLine, lines.length - 1), meta.indent ?? 0, orderedDelim)
+    }
   }
   while (lines.length && lines[lines.length - 1] === '') lines.pop()
   return lines.join('\n') + '\n'
