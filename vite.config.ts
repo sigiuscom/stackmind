@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/stackmind/' : '/',
+  base: '/',
   plugins: [vue()],
   resolve: {
     alias: {
