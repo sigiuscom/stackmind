@@ -1,0 +1,6 @@
+apiVersion: v2
+name: stackmind
+description: StackMind -- markdown editor with live mindmap preview
+type: application
+version: 0.1.0
+appVersion: "main"
