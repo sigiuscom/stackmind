@@ -1,0 +1,23 @@
+name: Shared CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    uses: sigiuscom/workflows/.github/workflows/gitleaks.yml@main
+    secrets: inherit
+
+  node:
+    uses: sigiuscom/workflows/.github/workflows/node-app.yml@main
+    with:
+      package-manager: pnpm
+      typecheck-cmd: 'pnpm exec tsc --noEmit'
+      lint-script: lint
