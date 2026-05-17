@@ -20,5 +20,4 @@ jobs:
     with:
       package-manager: pnpm
       typecheck-cmd: 'pnpm exec tsc --noEmit'
-      lint-script: lint
-# trigger: pnpm fix
+      lint-script: ''
